@@ -30,7 +30,7 @@ h2{font-size:19px;margin:0}
 .card h3{margin:0 0 12px;font-size:17px}
 .mealrow{display:grid;grid-template-columns:58px 1fr auto;gap:10px;align-items:center;padding:12px;border-radius:16px;margin:8px 0;background:var(--beige2)}
 .mealrow:nth-child(3){background:#fff2ee}.mealrow:nth-child(4){background:var(--green)}
-.badge{font-size:12px;font-weight:800}.mealname{font-weight:650}.sub{font-size:12px;color:var(--muted);margin-top:3px}
+.badge{font-size:12px;font-weight:800}.mealname{font-weight:650}.mealname.link{color:var(--red);cursor:pointer;text-decoration:none}.mealname.link:active{opacity:.65}.sub{font-size:12px;color:var(--muted);margin-top:3px}
 .primary,.secondary{border:0;border-radius:999px;padding:12px 18px;font-weight:750}
 .primary{background:var(--red);color:white}.secondary{background:var(--red2);color:var(--red)}
 .full{width:100%;margin-top:12px}
@@ -113,6 +113,11 @@ textarea{min-height:90px;resize:vertical}
 <button class="primary full" onclick="saveRecipe()">保存する</button>
 </div></div>
 
+<div id="recipeDetailModal" class="modal"><div class="sheet">
+<div class="sheethead"><h3 id="detailName">レシピ詳細</h3><button class="close" onclick="closeModal('recipeDetailModal')">×</button></div>
+<div id="recipeDetailBody"></div>
+</div></div>
+
 <script>
 const KEY='watashi_kondate_v1';
 let data=JSON.parse(localStorage.getItem(KEY)||'null')||{meals:{},recipes:[],shopping:[]};
@@ -135,7 +140,7 @@ function renderCalendar(){
 function renderDay(){
  const d=new Date(selected+'T00:00:00'), meal=data.meals[selected]||{};
  const card=document.getElementById('dayCard');
- card.innerHTML=`<h3>${d.getMonth()+1}月${d.getDate()}日の献立</h3>`+types.map((t,i)=>`<div class="mealrow"><div class="badge">${['🍚','🍖','🥗','🥣'][i]} ${t}</div><div><div class="mealname">${esc(meal[t]||'未登録')}</div>${meal[t]?recipeSub(meal[t]):''}</div><button class="smallbtn" onclick="openMeal('${t}')">›</button></div>`).join('')+`<button class="secondary full" onclick="openMeal()">この日の献立を編集</button>`;
+ card.innerHTML=`<h3>${d.getMonth()+1}月${d.getDate()}日の献立</h3>`+types.map((t,i)=>{let name=meal[t]||'',r=data.recipes.find(x=>x.name===name);return `<div class="mealrow"><div class="badge">${['🍚','🍖','🥗','🥣'][i]} ${t}</div><div><div class="mealname${r?' link':''}" ${r?`onclick="openRecipeDetail('${r.id}')"`:''}>${esc(name||'未登録')}${r?'  ›':''}</div>${name?recipeSub(name):''}</div><button class="smallbtn" onclick="openMeal('${t}')">✎</button></div>`}).join('')+`<button class="secondary full" onclick="openMeal()">この日の献立を編集</button>`;
 }
 function recipeSub(name){let r=data.recipes.find(x=>x.name===name);return r?`<div class="sub">${esc(r.source||'')} ${r.book?'・'+esc(r.book):''}</div>`:''}
 function openMeal(focus=''){
@@ -144,6 +149,15 @@ function openMeal(focus=''){
  document.getElementById('mealModal').classList.add('show');setTimeout(()=>focus&&document.getElementById('meal_'+focus)?.focus(),100)
 }
 function saveMeal(){let k=document.getElementById('mealDate').value;if(!k)return;data.meals[k]={};types.forEach(t=>data.meals[k][t]=document.getElementById('meal_'+t).value.trim());selected=k;save();closeModal('mealModal');cursor=new Date(k+'T00:00:00');cursor.setDate(1);renderCalendar()}
+function openRecipeDetail(id){
+ let r=data.recipes.find(x=>x.id===id);if(!r)return;
+ document.getElementById('detailName').textContent=r.name;
+ let source=r.source||'', action='';
+ if(r.url){let label=source==='Instagram'?'Instagramでレシピを見る':source==='Web'?'レシピサイトを開く':'レシピを開く';action=`<button class="primary full" onclick="window.open('${esc(r.url)}','_blank')">${label} ↗</button>`}
+ let info=`<div class="card" style="margin-top:0"><div class="tags">${esc(r.type||'')} ・ ${esc(source)}</div>${r.book?`<div class="settingrow"><b>📕 本・ページ</b><div class="note" style="margin-top:5px">${esc(r.book)}</div></div>`:''}${r.tags?`<div class="settingrow"><b>タグ</b><div class="note" style="margin-top:5px">${esc(r.tags)}</div></div>`:''}${r.memo?`<div class="settingrow"><b>メモ</b><div class="note" style="margin-top:5px;white-space:pre-wrap">${esc(r.memo)}</div></div>`:''}${action}<button class="secondary full" onclick="closeModal('recipeDetailModal');openRecipe('${r.id}')">レシピ情報を編集</button></div>`;
+ document.getElementById('recipeDetailBody').innerHTML=info;
+ document.getElementById('recipeDetailModal').classList.add('show');
+}
 function openRecipe(id=''){let r=data.recipes.find(x=>x.id===id)||{};recipeId.value=r.id||'';rName.value=r.name||'';rType.value=r.type||'主菜';rSource.value=r.source||'Instagram';rUrl.value=r.url||'';rBook.value=r.book||'';rTags.value=r.tags||'';rMemo.value=r.memo||'';document.getElementById('recipeModal').classList.add('show')}
 function saveRecipe(){if(!rName.value.trim()){alert('料理名を入力してください');return}let obj={id:recipeId.value||String(Date.now()),name:rName.value.trim(),type:rType.value,source:rSource.value,url:rUrl.value.trim(),book:rBook.value.trim(),tags:rTags.value.trim(),memo:rMemo.value.trim()};let i=data.recipes.findIndex(x=>x.id===obj.id);if(i>=0)data.recipes[i]=obj;else data.recipes.unshift(obj);save();closeModal('recipeModal');renderRecipes()}
 function renderRecipes(){let q=(document.getElementById('recipeSearch')?.value||'').toLowerCase(),list=data.recipes.filter(r=>(r.name+' '+r.type+' '+r.tags+' '+r.memo).toLowerCase().includes(q));document.getElementById('recipeList').innerHTML=list.length?list.map(r=>`<div class="recipe"><div class="recipeicon">${r.type==='主食'?'🍚':r.type==='主菜'?'🍖':r.type==='副菜'?'🥗':'🥣'}</div><div class="recipebody"><b>${esc(r.name)}</b><div class="tags">${esc(r.type)} ・ ${esc(r.source)}${r.tags?' ・ '+esc(r.tags):''}</div></div>${r.url?`<button class="smallbtn" onclick="window.open('${esc(r.url)}','_blank')">↗</button>`:''}<button class="smallbtn" onclick="openRecipe('${r.id}')">›</button></div>`).join(''):`<div class="emptymsg">まだレシピがありません。<br>「＋ 追加」から登録できます ♡</div>`}
