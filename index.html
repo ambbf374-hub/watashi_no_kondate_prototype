@@ -36,6 +36,8 @@ h2{font-size:19px;margin:0}
 .full{width:100%;margin-top:12px}
 .view{display:none}.view.active{display:block}
 .search{width:100%;border:1px solid var(--line);background:#fff;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.catbar{display:flex;gap:7px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}.catbar::-webkit-scrollbar{display:none}.catbtn{white-space:nowrap;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:9px 12px;font-size:12px;font-weight:750}.catbtn.active{background:var(--red);border-color:var(--red);color:#fff}
+.picker{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:#fff;border-radius:15px;padding:12px;margin:8px 0}.picker .pickname{flex:1;font-weight:700}.picker .picksub{font-size:11px;color:var(--muted);margin-top:3px}.pickbtn{border:0;background:var(--red2);color:var(--red);border-radius:999px;padding:8px 12px;font-weight:800}.fav{border:0;background:transparent;color:var(--red);font-size:21px;padding:4px}.mealchoice{display:grid;grid-template-columns:58px 1fr;gap:10px;align-items:start;padding:12px;border-radius:16px;margin:9px 0;background:var(--beige2)}.mealchoice:nth-child(3){background:#fff2ee}.mealchoice:nth-child(4){background:var(--green)}.choiceactions{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}.tiny{border:0;border-radius:999px;padding:7px 10px;background:#fff;color:var(--red);font-size:12px;font-weight:750}.manual{margin-top:8px}
 .recipe{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--line)}
 .recipe:last-child{border-bottom:0}.recipeicon{width:48px;height:48px;border-radius:14px;background:var(--beige);display:grid;place-items:center;font-size:24px}
 .recipebody{flex:1}.tags{font-size:11px;color:var(--muted);margin-top:4px}
@@ -69,7 +71,7 @@ textarea{min-height:90px;resize:vertical}
 
 <section id="recipeView" class="view">
   <div style="display:flex;justify-content:space-between;align-items:center"><h2>レシピ帳</h2><button class="primary" onclick="openRecipe()">＋ 追加</button></div>
-  <div class="card"><input id="recipeSearch" class="search" placeholder="料理名・タグ・食材で検索" oninput="renderRecipes()"><div id="recipeList"></div></div>
+  <div class="card"><div id="recipeCats" class="catbar"></div><input id="recipeSearch" class="search" placeholder="料理名・タグ・食材で検索" oninput="renderRecipes()"><div id="recipeList"></div></div>
 </section>
 
 <section id="shopView" class="view">
@@ -105,12 +107,18 @@ textarea{min-height:90px;resize:vertical}
 <div class="sheethead"><h3>レシピを登録</h3><button class="close" onclick="closeModal('recipeModal')">×</button></div>
 <input type="hidden" id="recipeId">
 <label>料理名</label><input id="rName" placeholder="例：鶏の照り焼き">
-<div class="twocol"><div><label>分類</label><select id="rType"><option>主食</option><option selected>主菜</option><option>副菜</option><option>汁物</option></select></div><div><label>レシピの場所</label><select id="rSource"><option>Instagram</option><option>Web</option><option>Kindle</option><option>レシピ本</option><option>自分のレシピ</option></select></div></div>
+<div class="twocol"><div><label>分類</label><select id="rType"><option>主食</option><option selected>主菜</option><option>副菜</option><option>汁物</option><option>デザート</option></select></div><div><label>レシピの場所</label><select id="rSource"><option>Instagram</option><option>Web</option><option>Kindle</option><option>レシピ本</option><option>自分のレシピ</option></select></div></div>
 <label>URL（Instagram・Webなど）</label><input id="rUrl" placeholder="https://...">
 <label>本の名前・ページ</label><input id="rBook" placeholder="例：○○の献立 P.82">
 <label>タグ</label><input id="rTags" placeholder="例：鶏肉, 簡単, 子ども">
 <label>メモ</label><textarea id="rMemo" placeholder="味付けや作るときのポイントなど"></textarea>
 <button class="primary full" onclick="saveRecipe()">保存する</button>
+</div></div>
+
+<div id="pickerModal" class="modal"><div class="sheet">
+<div class="sheethead"><h3 id="pickerTitle">レシピから選ぶ</h3><button class="close" onclick="closeModal('pickerModal')">×</button></div>
+<input id="pickerSearch" class="search" placeholder="レシピを検索" oninput="renderPicker()">
+<div id="pickerList"></div>
 </div></div>
 
 <div id="recipeDetailModal" class="modal"><div class="sheet">
@@ -124,6 +132,8 @@ let data=JSON.parse(localStorage.getItem(KEY)||'null')||{meals:{},recipes:[],sho
 let cursor=new Date(); cursor.setDate(1);
 let selected=dateKey(new Date());
 const types=['主食','主菜','副菜','汁物'];
+const recipeTypes=['すべて','主食','主菜','副菜','汁物','デザート'];
+let recipeCategory='すべて', pickerType='';
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
 function esc(s=''){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
@@ -145,9 +155,16 @@ function renderDay(){
 function recipeSub(name){let r=data.recipes.find(x=>x.name===name);return r?`<div class="sub">${esc(r.source||'')} ${r.book?'・'+esc(r.book):''}</div>`:''}
 function openMeal(focus=''){
  document.getElementById('mealDate').value=selected;
- document.getElementById('mealInputs').innerHTML=types.map(t=>`<label>${t}</label><input id="meal_${t}" list="list_${t}" value="${esc((data.meals[selected]||{})[t]||'')}" placeholder="${t}を入力"><datalist id="list_${t}">${data.recipes.filter(r=>r.type===t).map(r=>`<option value="${esc(r.name)}">`).join('')}</datalist>`).join('');
- document.getElementById('mealModal').classList.add('show');setTimeout(()=>focus&&document.getElementById('meal_'+focus)?.focus(),100)
+ let meal=data.meals[selected]||{};
+ document.getElementById('mealInputs').innerHTML=types.map((t,i)=>`<div class="mealchoice"><div class="badge">${['🍚','🍖','🥗','🥣'][i]} ${t}</div><div><div id="mealDisplay_${t}" class="mealname">${esc(meal[t]||'未選択')}</div><input type="hidden" id="meal_${t}" value="${esc(meal[t]||'')}"><div class="choiceactions"><button class="tiny" onclick="openPicker('${t}')">レシピから選ぶ</button><button class="tiny" onclick="toggleManual('${t}')">直接入力</button></div><input class="manual" id="manual_${t}" value="${esc(meal[t]||'')}" placeholder="${t}を入力" style="display:none" oninput="setManual('${t}',this.value)"></div></div>`).join('');
+ document.getElementById('mealModal').classList.add('show');
+ if(focus)setTimeout(()=>openPicker(focus),120)
 }
+function toggleManual(t){let el=document.getElementById('manual_'+t);el.style.display=el.style.display==='none'?'block':'none';if(el.style.display==='block')el.focus()}
+function setManual(t,v){document.getElementById('meal_'+t).value=v.trim();document.getElementById('mealDisplay_'+t).textContent=v.trim()||'未選択'}
+function openPicker(t){pickerType=t;document.getElementById('pickerTitle').textContent=t+'のレシピから選ぶ';document.getElementById('pickerSearch').value='';renderPicker();document.getElementById('pickerModal').classList.add('show')}
+function renderPicker(){let q=(document.getElementById('pickerSearch')?.value||'').toLowerCase(),list=data.recipes.filter(r=>r.type===pickerType&&(r.name+' '+r.tags+' '+r.memo).toLowerCase().includes(q));list.sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0)||a.name.localeCompare(b.name,'ja'));document.getElementById('pickerList').innerHTML=list.length?list.map(r=>`<div class="picker"><button class="fav" onclick="event.stopPropagation();toggleFavorite('${r.id}')">${r.favorite?'♥':'♡'}</button><div class="pickname">${esc(r.name)}<div class="picksub">${esc(r.source||'')}${r.tags?' ・ '+esc(r.tags):''}</div></div><button class="pickbtn" onclick="chooseRecipe('${r.id}')">選ぶ</button></div>`).join(''):`<div class="emptymsg">${esc(pickerType)}のレシピがまだありません。<br>レシピ帳から登録できます。</div>`}
+function chooseRecipe(id){let r=data.recipes.find(x=>x.id===id);if(!r)return;document.getElementById('meal_'+pickerType).value=r.name;document.getElementById('mealDisplay_'+pickerType).textContent=r.name;let m=document.getElementById('manual_'+pickerType);if(m)m.value=r.name;closeModal('pickerModal')}
 function saveMeal(){let k=document.getElementById('mealDate').value;if(!k)return;data.meals[k]={};types.forEach(t=>data.meals[k][t]=document.getElementById('meal_'+t).value.trim());selected=k;save();closeModal('mealModal');cursor=new Date(k+'T00:00:00');cursor.setDate(1);renderCalendar()}
 function openRecipeDetail(id){
  let r=data.recipes.find(x=>x.id===id);if(!r)return;
@@ -159,8 +176,16 @@ function openRecipeDetail(id){
  document.getElementById('recipeDetailModal').classList.add('show');
 }
 function openRecipe(id=''){let r=data.recipes.find(x=>x.id===id)||{};recipeId.value=r.id||'';rName.value=r.name||'';rType.value=r.type||'主菜';rSource.value=r.source||'Instagram';rUrl.value=r.url||'';rBook.value=r.book||'';rTags.value=r.tags||'';rMemo.value=r.memo||'';document.getElementById('recipeModal').classList.add('show')}
-function saveRecipe(){if(!rName.value.trim()){alert('料理名を入力してください');return}let obj={id:recipeId.value||String(Date.now()),name:rName.value.trim(),type:rType.value,source:rSource.value,url:rUrl.value.trim(),book:rBook.value.trim(),tags:rTags.value.trim(),memo:rMemo.value.trim()};let i=data.recipes.findIndex(x=>x.id===obj.id);if(i>=0)data.recipes[i]=obj;else data.recipes.unshift(obj);save();closeModal('recipeModal');renderRecipes()}
-function renderRecipes(){let q=(document.getElementById('recipeSearch')?.value||'').toLowerCase(),list=data.recipes.filter(r=>(r.name+' '+r.type+' '+r.tags+' '+r.memo).toLowerCase().includes(q));document.getElementById('recipeList').innerHTML=list.length?list.map(r=>`<div class="recipe"><div class="recipeicon">${r.type==='主食'?'🍚':r.type==='主菜'?'🍖':r.type==='副菜'?'🥗':'🥣'}</div><div class="recipebody"><b>${esc(r.name)}</b><div class="tags">${esc(r.type)} ・ ${esc(r.source)}${r.tags?' ・ '+esc(r.tags):''}</div></div>${r.url?`<button class="smallbtn" onclick="window.open('${esc(r.url)}','_blank')">↗</button>`:''}<button class="smallbtn" onclick="openRecipe('${r.id}')">›</button></div>`).join(''):`<div class="emptymsg">まだレシピがありません。<br>「＋ 追加」から登録できます ♡</div>`}
+function saveRecipe(){if(!rName.value.trim()){alert('料理名を入力してください');return}let i=data.recipes.findIndex(x=>x.id===recipeId.value),fav=i>=0?!!data.recipes[i].favorite:false;let obj={id:recipeId.value||String(Date.now()),name:rName.value.trim(),type:rType.value,source:rSource.value,url:rUrl.value.trim(),book:rBook.value.trim(),tags:rTags.value.trim(),memo:rMemo.value.trim(),favorite:fav};if(i>=0)data.recipes[i]=obj;else data.recipes.unshift(obj);save();closeModal('recipeModal');renderRecipes()}
+function iconFor(t){return t==='主食'?'🍚':t==='主菜'?'🍖':t==='副菜'?'🥗':t==='汁物'?'🥣':'🍰'}
+function setRecipeCategory(t){recipeCategory=t;renderRecipes()}
+function toggleFavorite(id){let r=data.recipes.find(x=>x.id===id);if(!r)return;r.favorite=!r.favorite;save();renderRecipes();if(document.getElementById('pickerModal').classList.contains('show'))renderPicker()}
+function renderRecipes(){
+ let cats=document.getElementById('recipeCats');if(cats)cats.innerHTML=recipeTypes.map(t=>`<button class="catbtn ${recipeCategory===t?'active':''}" onclick="setRecipeCategory('${t}')">${t==='すべて'?'すべて':iconFor(t)+' '+t}</button>`).join('');
+ let q=(document.getElementById('recipeSearch')?.value||'').toLowerCase(),list=data.recipes.filter(r=>(recipeCategory==='すべて'||r.type===recipeCategory)&&(r.name+' '+r.type+' '+r.tags+' '+r.memo).toLowerCase().includes(q));
+ list.sort((a,b)=>(b.favorite?1:0)-(a.favorite?1:0));
+ document.getElementById('recipeList').innerHTML=list.length?list.map(r=>`<div class="recipe"><div class="recipeicon">${iconFor(r.type)}</div><div class="recipebody"><b>${esc(r.name)}</b><div class="tags">${esc(r.type)} ・ ${esc(r.source)}${r.tags?' ・ '+esc(r.tags):''}</div></div><button class="fav" onclick="toggleFavorite('${r.id}')">${r.favorite?'♥':'♡'}</button>${r.url?`<button class="smallbtn" onclick="window.open('${esc(r.url)}','_blank')">↗</button>`:''}<button class="smallbtn" onclick="openRecipe('${r.id}')">›</button></div>`).join(''):`<div class="emptymsg">このカテゴリにはまだレシピがありません。<br>「＋ 追加」から登録できます ♡</div>`
+}
 function addShop(){let name=prompt('買うものを入力してください');if(name&&name.trim()){data.shopping.push({id:String(Date.now()),name:name.trim(),done:false});save();renderShop()}}
 function toggleShop(id){let x=data.shopping.find(x=>x.id===id);if(x)x.done=!x.done;save();renderShop()}
 function renderShop(){document.getElementById('shopList').innerHTML=data.shopping.length?data.shopping.map(x=>`<div class="shopping-item"><input type="checkbox" ${x.done?'checked':''} onchange="toggleShop('${x.id}')"><span style="${x.done?'text-decoration:line-through;color:#999':''}">${esc(x.name)}</span></div>`).join(''):`<div class="emptymsg">買い物リストは空です 🛒</div>`}
