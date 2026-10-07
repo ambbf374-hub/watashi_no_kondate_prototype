@@ -107,7 +107,7 @@ textarea{min-height:90px;resize:vertical}
 <div class="sheethead"><h3>レシピを登録</h3><button class="close" onclick="closeModal('recipeModal')">×</button></div>
 <input type="hidden" id="recipeId">
 <label>料理名</label><input id="rName" placeholder="例：鶏の照り焼き">
-<div class="twocol"><div><label>分類</label><select id="rType"><option>主食</option><option selected>主菜</option><option>副菜</option><option>汁物</option><option>デザート</option></select></div><div><label>レシピの場所</label><select id="rSource"><option>Instagram</option><option>Web</option><option>Kindle</option><option>レシピ本</option><option>自分のレシピ</option></select></div></div>
+<div class="twocol"><div><label>分類</label><select id="rType"><option>主食</option><option selected>主菜</option><option>副菜</option><option>汁物</option><option>デザート</option><option>お弁当</option></select></div><div><label>レシピの場所</label><select id="rSource"><option>Instagram</option><option>Web</option><option>Kindle</option><option>レシピ本</option><option>自分のレシピ</option></select></div></div>
 <label>URL（Instagram・Webなど）</label><input id="rUrl" placeholder="https://...">
 <label>本の名前・ページ</label><input id="rBook" placeholder="例：○○の献立 P.82">
 <label>タグ</label><input id="rTags" placeholder="例：鶏肉, 簡単, 子ども">
@@ -132,7 +132,7 @@ let data=JSON.parse(localStorage.getItem(KEY)||'null')||{meals:{},recipes:[],sho
 let cursor=new Date(); cursor.setDate(1);
 let selected=dateKey(new Date());
 const types=['主食','主菜','副菜','汁物'];
-const recipeTypes=['すべて','主食','主菜','副菜','汁物','デザート'];
+const recipeTypes=['すべて','主食','主菜','副菜','汁物','デザート','お弁当'];
 let recipeCategory='すべて', pickerType='';
 function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
@@ -177,7 +177,7 @@ function openRecipeDetail(id){
 }
 function openRecipe(id=''){let r=data.recipes.find(x=>x.id===id)||{};recipeId.value=r.id||'';rName.value=r.name||'';rType.value=r.type||'主菜';rSource.value=r.source||'Instagram';rUrl.value=r.url||'';rBook.value=r.book||'';rTags.value=r.tags||'';rMemo.value=r.memo||'';document.getElementById('recipeModal').classList.add('show')}
 function saveRecipe(){if(!rName.value.trim()){alert('料理名を入力してください');return}let i=data.recipes.findIndex(x=>x.id===recipeId.value),fav=i>=0?!!data.recipes[i].favorite:false;let obj={id:recipeId.value||String(Date.now()),name:rName.value.trim(),type:rType.value,source:rSource.value,url:rUrl.value.trim(),book:rBook.value.trim(),tags:rTags.value.trim(),memo:rMemo.value.trim(),favorite:fav};if(i>=0)data.recipes[i]=obj;else data.recipes.unshift(obj);save();closeModal('recipeModal');renderRecipes()}
-function iconFor(t){return t==='主食'?'🍚':t==='主菜'?'🍖':t==='副菜'?'🥗':t==='汁物'?'🥣':'🍰'}
+function iconFor(t){return t==='主食'?'🍚':t==='主菜'?'🍖':t==='副菜'?'🥗':t==='汁物'?'🥣':t==='デザート'?'🍰':'🍱'}
 function setRecipeCategory(t){recipeCategory=t;renderRecipes()}
 function toggleFavorite(id){let r=data.recipes.find(x=>x.id===id);if(!r)return;r.favorite=!r.favorite;save();renderRecipes();if(document.getElementById('pickerModal').classList.contains('show'))renderPicker()}
 function renderRecipes(){
